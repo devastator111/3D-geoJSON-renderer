@@ -12,34 +12,30 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   function renderGeoJson(coordinates,size) {
     /*
-    size: {minX, minY, minZ, maxX, maxY, maxZ, scale, scaleX, scaleY, scaleZ, offsetX, offsetY}
+    size: {angle, minX, minY, minZ, maxX, maxY, maxZ, scale, scaleX, scaleY, scaleZ, offsetX, offsetY}
     */
     push();
-    rotateZ(radians(angle));
-    rotateX(radians(60));
-    translate(-0.5 * width, -0.5 * height, 0);
-    camera(0, 0, maxZ + 600, 0, 0, 0, 1, 1, 0);
-
-    debugMode();
+    rotateZ(radians(size.angle));
+    let g = max(size.maxX*size.scale+size.offsetX, size.maxY*size.scale+size.offsetY)
+    camera(g,g, size.maxZ*size.scaleZ+200,0,0,0,1,1,0);
     background(100, 150, 200);
-    let b = 200;
-    pointLight(b, b, b - 10, 0, 0, 500);
+    let b = 255;
+    pointLight(b, b, b - 10, 0, 0, size.maxZ*size.scaleZ+200);
     ambientLight(b / 5, b / 5, b / 5);
     fill(0, 255, 0);
     noFill();
-
+    strokeWeight(1);
+    /*
     beginShape();
-    vertex(size.maxX * size.scale + size.offsetX, size.maxY * size.scale + size.offsetY, size.maxZ * size.scaleZ);
-    vertex(size.maxX * size.scale + size.offsetX, size.minY * size.scale + size.offsetY, size.maxZ * size.scaleZ);
     vertex(size.minX * size.scale + size.offsetX, size.minY * size.scale + size.offsetY, size.maxZ * size.scaleZ);
+    vertex(size.maxX * size.scale + size.offsetX, size.minY * size.scale + size.offsetY, size.maxZ * size.scaleZ);
+    vertex(size.maxX * size.scale + size.offsetX, size.maxY * size.scale + size.offsetY, size.maxZ * size.scaleZ);
     vertex(size.minX * size.scale + size.offsetX, size.maxY * size.scale + size.offsetY, size.maxZ * size.scaleZ);
     endShape(CLOSE);
-
-    strokeWeight(1);
-
+    */
     let count = 0;
     for (let tri of coordinates) {
-        fill(0, random(100, 200), 0);
+        fill(10,randomGaussian(122.5,10),10);
         beginShape();
         for (let v of tri) {
             count++;
@@ -49,9 +45,10 @@
     }
     pop();
   }
-  function calcTriangles(geoJsonData) {
+  function calcTriangles(geoJsonData, skip) {
     let xyPlane = [];
     let zPlaneMap = new Map(); 
+    skip = skip || 1; // Process every feature by default
     // Map to associate xyPlane coordinates with zPlane values
 
     if (!geoJsonData || !geoJsonData.features) {
@@ -59,11 +56,11 @@
       return;
     }
   
-    minX = Infinity, minY = Infinity, minZ = Infinity;
-    maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     let j = 0;
     //Collect coordinates and calculate bounding box
-    for (let i = 0; i < geoJsonData.features.length; i+=10) {
+    for (let i = 0; i < geoJsonData.features.length; i+=skip) {
       let feature = geoJsonData.features[i];
       if (feature.geometry != null) {
         if (feature.geometry.type === "MultiLineString") {
@@ -94,6 +91,8 @@
             minZ = min(minZ, feature.properties.ContourEle / 10);
             maxZ = max(maxZ, feature.properties.ContourEle / 10);
           }
+        } else {
+          console.warn("Unsupported feature type. Only LineString and MultiLineString are currently supported.");
         }
       }
     }
@@ -102,13 +101,13 @@
     let triangles = d.triangles;
   
     // Determine scaling factors
-    scaleX = width / (maxX - minX);
-    scaleY = height / (maxY - minY);
-    scaleZ = 200 / (maxZ - minZ);
-    scale = min(scaleX, scaleY) * 0.9;
-    offsetX = width / 2 - (minX + maxX) / 2 * scale;
-    offsetY = height / 2 - (minY + maxY) / 2 * scale;
-    coordinates = [];
+    let scaleX = 1000 / (maxX - minX);
+    let scaleY = 1000 / (maxY - minY);
+    let scaleZ = 200 / (maxZ - minZ);
+    let scale = min(scaleX, scaleY);
+    let offsetX = 0 - (minX + maxX) / 2 * scale;
+    let offsetY = 0 - (minY + maxY) / 2 * scale;
+    let coordinates = [];
     for (let i = 0; i < triangles.length; i += 3) {
       let k = [];
       for (let j = 0; j < 3; j++) {
@@ -121,7 +120,7 @@
         coordinates.push(k);
       }
     }
-    let calcSize = {minX, minY, minZ, maxX, maxY, maxZ, scale, scaleX, scaleY, scaleZ, offsetX, offsetY}
+    let calcSize = {minX, minY, minZ, maxX, maxY, maxZ, scale, scaleX, scaleY, scaleZ, offsetX, offsetY, angle:0}
     geoJsonModule.renderGeoJson(coordinates, calcSize);
     return [coordinates, calcSize];
   }
