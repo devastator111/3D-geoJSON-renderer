@@ -1,135 +1,178 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <title>3D geoJSON</title>
-    <!--FIX THE DANG IMPORT FROM GITHUB-->
-    <script type="application/javascript" src="delaunay.js"></script>
-    <!--<script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>-->
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.8.0/p5.js"></script>
+    <script src="render.js"></script>
+    <script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.10/lib/p5.min.js"></script>
+    
+    
+    <style>
+      * {
+        font-family:Verdana, Geneva, Tahoma, sans-serif
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        
+      }
+      canvas {
+        background-color:rgb(100,150,200);
+        width:100%;
+        height:calc(100% - 110px);
+      }
+      header {
+        
+        height: 110px;
+        background-image:linear-gradient(white 0%, rgb(100,150,200) 100%);
+      }
+      h1, h2 {
+        text-align:center;
+      }
+      aside h2, p {
+        margin-top:5px;
+      }
+      @media screen and (min-width:700px) {
+        aside {
+          padding:0;
+          position:absolute;
+          right:10px;
+          top:10px;
+          width:30%;
+          height:100px;
+          background-color:lightgreen;
+          border:3px solid green;
+          border-radius:7px;
+        }
+      }
+      @media screen and (max-width:700px) {
+        aside {
+          display:none;
+        }
+      }
+      main {
+        display:flex;
+        justify-content:center;
+      }
+      button {
+        pointer-events:all;
+      }
+      input:invalid + button{
+        filter:grayscale(1);
+        opacity:0.7;
+        pointer-events:none;
+      }
+      button, input::file-selector-button {
+        background-color:rgb(100, 129, 224);
+        border:3px rgb(61, 63, 190) solid;
+        border-radius:7px;
+        padding:5px;
+        padding-left:20px;
+        padding-right:20px;
+        font-size:12pt;
+      }
+      input:valid + button:hover, input::file-selector-button:hover {
+        filter:brightness(1.2);
+        cursor:pointer;
+      }
+      input:valid + button:active, input::file-selector-button:active {
+        filter:brightness(0.9);
+      }
+    </style>
     <script>
-        //import Delaunator from 'https://cdn.skypack.dev/delaunator@5.0.0';
-        //Figure out out to use that...
-        let geojsonData;
-
+        
+        let coordinates = [];
+        let rAngle = 0;
+        let time = Date.now();
         function preload() {
-          // Load the converted GeoJSON file from your data folder.
-          geojsonData = loadJSON("simpleHill.json");
+          jsonData = loadJSON("sampleTerrain.json");
         }
-
+        function load() {
+          //alert("Loading file...");
+          const fileInput = document.getElementById('fileInput');
+          const file = fileInput.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              try {
+                jsonData = JSON.parse(e.target.result);
+                 // Clear previous coordinates
+                let map = geoJsonModule.calcTriangles(jsonData,2);
+                mapCoordinates = map[0];
+                mapSize = map[1];
+                rAngle = 0;
+              } catch (error) {
+                console.error("Error parsing JSON:", error);
+              }
+            };
+            reader.readAsText(file);
+          } else {
+            alert("Please select a file first.");
+          }
+        }
         function setup() {
-          createCanvas(800, 600, WEBGL);
+          createCanvas(window.innerWidth, window.innerHeight-110, WEBGL,document.getElementById("sketch"));
           frameRate(5);
-          noLoop();
-          // Draw once since the data is static
+          let map = geoJsonModule.calcTriangles(jsonData,1);
+          mapCoordinates = map[0];
+          mapSize = map[1];
+          mapSize.angle = rAngle;
+
+          console.log(Date.now()-time);
         }
-
-        function draw() {
-
-          orbitControl();
-          translate(-0.5 * width, -0.5 * height, 100);
-          background(100, 150, 200);
-          renderGeoJson(geojsonData);
-        }
-
-        // Function to draw the GeoJSON data
-        function renderGeoJson(data) {
-          let xyPlane = [];
-          if (!data || !data.features) {console.error("Data not loaded");return;}; // Exit if data is not loaded
-
-          // Find the min/max coordinates to scale and center the shape on the canvas
-          let minX = Infinity,minY = Infinity;
-          let maxX = -Infinity,maxY = -Infinity;
-          // First pass: Calculate bounding box for all features
-          for (let feature of data.features) {
-            if (feature.geometry != null) {
-              if (feature.geometry.type === "MultiLineString") {
-
-                //console.log("first");
-                for (let ring of feature.geometry.coordinates) {
-                  for (let coord of ring) {
-                    xyPlane.push([coord[0],coord[1]]);
-                    minX = min(minX, coord[0]);
-                    minY = min(minY, coord[1]);
-                    maxX = max(maxX, coord[0]);
-                    maxY = max(maxY, coord[1]);
-                  }
-                }
-              } else if (feature.geometry.type === "LineString") {
-                for (let coord of feature.geometry.coordinates) {
-                  xyPlane.push([coord[0],coord[1]]);
-                  minX = min(minX, coord[0]);
-                  minY = min(minY, coord[1]);
-                  maxX = max(maxX, coord[0]);
-                  maxY = max(maxY, coord[1]);
-                }
-              }
-            }
-          }
-          xyPlane.splice(0,2000);
-          //console.log(xyPlane.length);
-          var d = new Delaunay(xyPlane);
-          //console.log(d);
-          var triangles = d.triangulate();
-          console.log(triangles);
-          // Determine the scaling factors
-          let scaleX = width / (maxX - minX);
-          let scaleY = height / (maxY - minY);
-          let scale = min(scaleX, scaleY) * 0.9; // Use 90% of the screen
-
-          // Calculate translation to center the map
-          let offsetX = width / 2 - (minX + maxX) / 2 * scale;
-          let offsetY = height / 2 - (minY + maxY) / 2 * scale;
-
-          // Second pass: Draw the shapes
-          var j = 0;
-          var k = 0;
-          for (let feature of data.features) {
-            // Set the fill and stroke colors
-            fill(100, 150, 100);
-            noFill();
-            stroke(50);
-            j++;
-            if (feature.geometry != null) {
-
-              if (feature.geometry.type === "MultiLineString") {
-
-                // Loop through the coordinate rings of the polygon
-                for (let ring of feature.geometry.coordinates) {var _loopStart = Date.now(),_loopIt = 0;
-                  beginShape();
-                  // The first ring is the exterior, subsequent rings are holes
-                  setTimeout(function () {_loopStart = Infinity;});for (let i = 0; i < ring.length; i++) {if (++_loopIt > 100 && Date.now() - _loopStart > 100) throw new RangeError("Potential infinite loop detected.");
-                    k++;
-                    let x = ring[i][0] * scale + offsetX;
-                    let y = ring[i][1] * scale + offsetY;
-                    vertex(x, y,feature.properties.ContourEle/10);
-                  }
-                  endShape();
-                }
-
-              } else {
-                if (feature.geometry.type === "LineString") {
-                  beginShape();
-                  for (let i of feature.geometry.coordinates) {
-                    k++;
-                    let x = i[0] * scale + offsetX;
-                    let y = i[1] * scale + offsetY;
-                    vertex(x, y,feature.properties.ContourEle/10);
-                  }
-                  endShape();
-                }
-              }
-            }
-          }
-          for(i in triangles) {
               
+        function keyPressed() {
+          if (keyCode === LEFT_ARROW) {
+            rAngle-=30;
+            if(rAngle<=0) rAngle = rAngle+360;
+            mapSize.angle = rAngle
+            geoJsonModule.renderGeoJson(mapCoordinates, mapSize);
+            return false;
+          } else if (keyCode === RIGHT_ARROW) {
+            rAngle+=30;
+            if(rAngle>=360) rAngle = rAngle-360;
+            mapSize.angle = rAngle;
+            geoJsonModule.renderGeoJson(mapCoordinates, mapSize);
+            return false;
           }
-          console.log(`reached end at ${j} and vertex ${k}`);
-          console.log(data.features.length);
+          
         }
+        function windowResized() {
+          resizeCanvas(window.innerWidth, window.innerHeight - 110);
+
+          // Recalculate scaling factors
+          let scaleX = 1000 / (mapSize.maxX - mapSize.minX);
+          let scaleY = 1000 / (mapSize.maxY - mapSize.minY);
+          mapSize.scaleZ = 200 / (mapSize.maxZ - mapSize.minZ);
+          mapSize.scale = min(scaleX, scaleY) * 1; 
+          // Recalculate translation offsets
+          mapSize.offsetX = 0 - ((mapSize.minX + mapSize.maxX) / 2) * mapSize.scale;
+          mapSize.offsetY = 0 - ((mapSize.minY + mapSize.maxY) / 2) * mapSize.scale;
+
+          // Re-render the model
+          geoJsonModule.renderGeoJson(mapCoordinates, mapSize);
+        }
+        function draw() {
+        }
+        
     </script>
   </head>
 
   <body>
-    <h1></h1>
+    <header>
+      <h1>3D GeoJSON Renderer</h1>
+      <aside>
+        <h2>Instructions</h2>
+        <p style="text-align:center">Use the left and right arrow keys to rotate the model</p>
+      </aside>
+      <main>
+        <div> 
+        <input required placeholder="Please select a geoJSON file" type="file" id="fileInput" accept=".json"/>
+        <button onclick="load()">Load Sketch</button>
+        </div>
+      </main>
+    </header>
+    <canvas id="sketch"></canvas>
   </body>
 </html>
