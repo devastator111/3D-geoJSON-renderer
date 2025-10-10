@@ -16,8 +16,9 @@
     */
     push();
     rotateZ(radians(size.angle));
-    let g = max(size.maxX*size.scale+size.offsetX, size.maxY*size.scale+size.offsetY)
-    camera(g,g, size.maxZ*size.scaleZ+200,0,0,0,1,1,0);
+    let mX = max(size.maxX*size.scale+size.offsetX, size.maxY*size.scale+size.offsetY)
+    let mN = 0;
+    camera(mX,mX, size.maxZ*size.scaleZ+400,mN,mN,0,1,1,0);
     background(100, 150, 200);
     let b = 255;
     pointLight(b, b, b - 10, 0, 0, size.maxZ*size.scaleZ+200);
@@ -121,7 +122,6 @@
       }
     }
     let calcSize = {minX, minY, minZ, maxX, maxY, maxZ, scale, scaleX, scaleY, scaleZ, offsetX, offsetY, angle:0}
-    geoJsonModule.renderGeoJson(coordinates, calcSize);
     return [coordinates, calcSize];
   }
   return {
