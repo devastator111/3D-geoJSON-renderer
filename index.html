@@ -2,6 +2,13 @@
 <html lang="en">
   <head>
     <title>3D geoJSON</title>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NV6D9C4T');</script>
+    <!-- End Google Tag Manager -->
     <script src="render.js"></script>
     <script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/p5@1.11.10/lib/p5.min.js"></script>
@@ -10,28 +17,6 @@
     <style>
       * {
         font-family:Verdana, Geneva, Tahoma, sans-serif
-      }
-      body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        
-      }
-      canvas {
-        background-color:rgb(100,150,200);
-        width:100%;
-        height:calc(100% - 110px);
-      }
-      header {
-        
-        height: 110px;
-        background-image:linear-gradient(white 0%, rgb(100,150,200) 100%);
-      }
-      h1, h2 {
-        text-align:center;
-      }
-      aside h2, p {
-        margin-top:5px;
       }
       @media screen and (min-width:700px) {
         aside {
@@ -51,14 +36,36 @@
           display:none;
         }
       }
-      main {
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        
+      }
+      canvas {
+        background-color:rgb(100,150,200);
+        width:100%;
+        height:calc(100% - 110px);
+      }
+      header {
+        height: 110px;
+        background-image:linear-gradient(white 0%, rgb(100,150,200) 100%);
+        margin:0;
+      }
+      h1, h2 {
+        text-align:center;
+      }
+      aside h2, p {
+        margin-top:5px;
+      }
+      form {
         display:flex;
         justify-content:center;
       }
       button {
         pointer-events:all;
       }
-      input:invalid + button{
+      input:invalid + button {
         filter:grayscale(1);
         opacity:0.7;
         pointer-events:none;
@@ -79,13 +86,53 @@
       input:valid + button:active, input::file-selector-button:active {
         filter:brightness(0.9);
       }
+      #status {
+        text-align:center;
+        width:50%;
+        max-width:300px;
+        border:3px solid rgb(206, 0, 10);
+        border-radius:7px;
+        background-color:rgb(255, 74, 74);
+      }
+      #statusWrapper {
+        display:flex;
+        justify-content:center;
+        position:absolute;
+        z-index:2;
+        width:100%;
+        top:120px;
+        
+      }
     </style>
+    <noscript>
+      <style>
+        canvas {
+          display:none;
+        }
+        #noCanvasWrapper {
+          width:100%;
+          height:50px;
+          background-color:rgb(100,150,200)
+        }
+        #noJsWrapper {
+          padding:10% 10% 0% 10%;
+          width:80%;
+          height:calc(100vh - 110px);
+          background-color:rgb(100,150,200);
+        }
+        #noJs, #noCanvas {
+          margin:0;
+        }
+      </style>
+    </noscript>
     <script>
         
         let coordinates = [];
         let rAngle = 0;
         let time = Date.now();
+        
         function preload() {
+          document.getElementById("status").style.display = "block"
           jsonData = loadJSON("sampleTerrain.json");
         }
         function load() {
@@ -97,11 +144,13 @@
             reader.onload = function(e) {
               try {
                 jsonData = JSON.parse(e.target.result);
-                 // Clear previous coordinates
+                document.getElementById("status").style.display = "block"
                 let map = geoJsonModule.calcTriangles(jsonData,2);
                 mapCoordinates = map[0];
                 mapSize = map[1];
                 rAngle = 0;
+                geoJsonModule.renderGeoJson(mapCoordinates, mapSize);
+                document.getElementById("status").style.display = "none";
               } catch (error) {
                 console.error("Error parsing JSON:", error);
               }
@@ -114,12 +163,14 @@
         function setup() {
           createCanvas(window.innerWidth, window.innerHeight-110, WEBGL,document.getElementById("sketch"));
           frameRate(5);
+          
           let map = geoJsonModule.calcTriangles(jsonData,1);
           mapCoordinates = map[0];
           mapSize = map[1];
           mapSize.angle = rAngle;
-
+          geoJsonModule.renderGeoJson(mapCoordinates, mapSize);
           console.log(Date.now()-time);
+          document.getElementById("status").style.display = "none";
         }
               
         function keyPressed() {
@@ -160,19 +211,35 @@
   </head>
 
   <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NV6D9C4T"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->  
     <header>
       <h1>3D GeoJSON Renderer</h1>
       <aside>
         <h2>Instructions</h2>
         <p style="text-align:center">Use the left and right arrow keys to rotate the model</p>
       </aside>
-      <main>
+      <form>
         <div> 
         <input required placeholder="Please select a geoJSON file" type="file" id="fileInput" accept=".json"/>
         <button onclick="load()">Load Sketch</button>
         </div>
-      </main>
+      </form>
     </header>
-    <canvas id="sketch"></canvas>
+    <div id="statusWrapper">
+      <div id="status">Rendering sketch...</div>
+    </div>
+    <canvas id="sketch">
+      <div id="noCanvasWrapper">
+        <h2 id="noCanvas">HTML5 canvas is not supported in your browser.<br> Please use a browser version that supports HTML5 canvas.</h2>
+      </div>
+    </canvas>
+    <noscript>
+      <div id="noJsWrapper">
+        <h2 id="noJs">Either your browser does not support Javascript, or you have it disabled.<br> Please enable Javascript to run this demo.</h2>
+      </div>
+    </noscript>
   </body>
 </html>
